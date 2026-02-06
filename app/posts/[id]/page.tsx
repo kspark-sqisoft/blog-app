@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { getPost } from "@/module/posts/actions/post.action";
 import PostDeleteButton from "@/module/posts/components/post-delete-button";
 
@@ -60,7 +61,29 @@ export default async function PostDetailPage({ params }: PostDetailPageProps) {
 
                         <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground pt-2 border-t">
                             <div className="flex items-center gap-2">
-                                <User className="size-4" />
+                                {/* 프로필 이미지가 있으면 아바타로 표시, 없으면 User 아이콘 */}
+                                {post.user.image ? (
+                                    <Avatar size="sm" className="size-6">
+                                        <AvatarImage
+                                            src={post.user.image}
+                                            alt={post.user.name || post.user.email || "User"}
+                                        />
+                                        <AvatarFallback className="text-xs">
+                                            {post.user.name
+                                                ? post.user.name
+                                                    .split(" ")
+                                                    .map((n) => n[0])
+                                                    .join("")
+                                                    .toUpperCase()
+                                                    .slice(0, 2)
+                                                : post.user.email
+                                                    ? post.user.email[0].toUpperCase()
+                                                    : "U"}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                ) : (
+                                    <User className="size-4" />
+                                )}
                                 <span className="font-medium">{post.user.name || post.user.email}</span>
                             </div>
                             {post.createdAt && (

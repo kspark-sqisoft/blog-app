@@ -11,6 +11,7 @@ export const getPosts = async () => {
                     id: true,
                     name: true,
                     email: true,
+                    image: true, // 프로필 이미지 포함
                 },
             },
             tags: {
@@ -81,6 +82,7 @@ export const getPostsPaginated = async ({
                     id: true,
                     name: true,
                     email: true,
+                    image: true, // 프로필 이미지 포함
                 },
             },
             tags: {
@@ -184,6 +186,7 @@ export const getPost = async (id: number) => {
                     id: true,
                     name: true,
                     email: true,
+                    image: true, // 프로필 이미지 포함
                 },
             },
             tags: {

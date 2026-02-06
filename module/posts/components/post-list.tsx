@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { getPostsPaginated, deletePost } from "../actions/post.action";
 
 type PostWithUser = Awaited<ReturnType<typeof getPostsPaginated>>["items"][0];
@@ -227,9 +228,31 @@ const PostList = () => {
                                                 </CardTitle>
 
                                                 {/* 작성자 및 날짜: 고정 높이 */}
-                                                <div className="flex items-center gap-3 text-xs text-muted-foreground h-3.5">
-                                                    <div className="flex items-center gap-1">
-                                                        <User className="size-3" />
+                                                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                                    <div className="flex items-center gap-2">
+                                                        {/* 프로필 이미지가 있으면 아바타로 표시, 없으면 User 아이콘 */}
+                                                        {post.user.image ? (
+                                                            <Avatar size="sm" className="size-5">
+                                                                <AvatarImage
+                                                                    src={post.user.image}
+                                                                    alt={post.user.name || post.user.email || "User"}
+                                                                />
+                                                                <AvatarFallback className="text-[10px]">
+                                                                    {post.user.name
+                                                                        ? post.user.name
+                                                                            .split(" ")
+                                                                            .map((n) => n[0])
+                                                                            .join("")
+                                                                            .toUpperCase()
+                                                                            .slice(0, 2)
+                                                                        : post.user.email
+                                                                            ? post.user.email[0].toUpperCase()
+                                                                            : "U"}
+                                                                </AvatarFallback>
+                                                            </Avatar>
+                                                        ) : (
+                                                            <User className="size-4" />
+                                                        )}
                                                         <span className="font-medium">{post.user.name || post.user.email}</span>
                                                     </div>
                                                     {post.createdAt && (
