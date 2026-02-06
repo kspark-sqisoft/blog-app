@@ -16,6 +16,7 @@
 
 import { useSession, signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { LogIn, LogOut, User } from "lucide-react";
 import Link from "next/link";
 
@@ -48,11 +49,39 @@ export function AuthButton() {
 
     // 로그인된 상태: 사용자 정보 + 로그아웃 버튼
     if (session) {
+        // 프로필 이미지가 있으면 아바타로 표시, 없으면 이름/이메일의 첫 글자 표시
+        const userInitials = session.user?.name
+            ? session.user.name
+                .split(" ")
+                .map((n) => n[0])
+                .join("")
+                .toUpperCase()
+                .slice(0, 2)
+            : session.user?.email
+                ? session.user.email[0].toUpperCase()
+                : "U";
+
         return (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
+                {/* 프로필 아바타 */}
+                <Avatar size="sm">
+                    {session.user?.image ? (
+                        <AvatarImage
+                            src={session.user.image}
+                            alt={session.user?.name || session.user?.email || "User"}
+                        />
+                    ) : null}
+                    <AvatarFallback>
+                        {userInitials}
+                    </AvatarFallback>
+                </Avatar>
+
+                {/* 사용자 이름/이메일 (모바일에서는 숨김) */}
                 <span className="text-sm text-muted-foreground hidden sm:inline">
                     {session.user?.name || session.user?.email}
                 </span>
+
+                {/* 로그아웃 버튼 */}
                 <Button
                     variant="ghost"
                     size="sm"

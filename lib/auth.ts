@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import Credentials from "next-auth/providers/credentials";
+import Google from "next-auth/providers/google";
 import prisma from "@/lib/prisma";
 import { compare } from "bcryptjs";
 import type { NextAuthConfig } from "next-auth";
@@ -18,6 +19,68 @@ export const authConfig = {
     adapter: PrismaAdapter(prisma),
     
     providers: [
+        // ============================================
+        // Google OAuth Provider 설정
+        // ============================================
+        // Gmail 계정으로 로그인할 수 있도록 Google OAuth를 추가합니다.
+        //
+        // 설정 전 준비 사항:
+        // 1. Google Cloud Console (https://console.cloud.google.com/) 접속
+        // 2. 새 프로젝트 생성 또는 기존 프로젝트 선택
+        // 3. "API 및 서비스" > "사용자 인증 정보" 메뉴로 이동
+        // 4. "사용자 인증 정보 만들기" > "OAuth 클라이언트 ID" 선택
+        // 5. 애플리케이션 유형: "웹 애플리케이션" 선택
+        // 6. 승인된 리디렉션 URI 추가:
+        //    - 개발: http://localhost:3000/api/auth/callback/google
+        //    - 프로덕션: https://yourdomain.com/api/auth/callback/google
+        // 7. 클라이언트 ID와 클라이언트 보안 비밀번호 복사
+        // 8. .env.local 파일에 다음 환경 변수 추가:
+        //    AUTH_GOOGLE_ID=your-google-client-id
+        //    AUTH_GOOGLE_SECRET=your-google-client-secret
+        //
+        // 동작 방식:
+        // 1. 사용자가 "Google로 로그인" 버튼 클릭
+        // 2. signIn("google") 호출
+        // 3. Google 로그인 페이지로 리다이렉트
+        // 4. 사용자가 Google 계정으로 로그인 및 권한 승인
+        // 5. Google이 /api/auth/callback/google로 리다이렉트
+        // 6. NextAuth가 Google에서 받은 정보로 사용자 생성/조회
+        // 7. PrismaAdapter가 Account 테이블에 OAuth 정보 저장
+        // 8. 세션 생성 및 로그인 완료
+        //
+        // PrismaAdapter 사용:
+        // - OAuth Provider는 PrismaAdapter를 사용하여
+        //   Account 테이블에 OAuth 계정 정보를 저장합니다.
+        // - 같은 이메일로 Credentials와 Google 로그인을 모두 사용할 수 있습니다.
+        //
+        // ⚠️ 중요: 환경 변수가 설정되어 있을 때만 Google Provider 활성화
+        // 환경 변수가 없으면 이 Provider는 무시됩니다.
+        ...(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET
+            ? [
+                  Google({
+                      clientId: process.env.AUTH_GOOGLE_ID,
+                      clientSecret: process.env.AUTH_GOOGLE_SECRET,
+                      // 선택적: 추가 스코프 요청
+                      // authorization: {
+                      //     params: {
+                      //         prompt: "consent",
+                      //         access_type: "offline",
+                      //         response_type: "code"
+                      //     }
+                      // }
+                  }),
+              ]
+            : (() => {
+                  // 개발 환경에서만 경고 메시지 출력
+                  if (process.env.NODE_ENV === "development") {
+                      console.warn(
+                          "⚠️ Google OAuth Provider가 비활성화되었습니다.",
+                          "환경 변수 AUTH_GOOGLE_ID와 AUTH_GOOGLE_SECRET이 설정되어 있는지 확인하세요."
+                      );
+                  }
+                  return [];
+              })()),
+
         // ============================================
         // Credentials Provider 설정
         // ============================================
@@ -98,6 +161,66 @@ export const authConfig = {
     // Callbacks: JWT 및 세션 생성 시 실행되는 함수들
     // ============================================
     callbacks: {
+        // ============================================
+        // signIn callback: 로그인 시 실행
+        // ============================================
+        // OAuth 로그인 시 같은 이메일의 기존 계정과 연결하도록 처리합니다.
+        // 이 함수가 true를 반환하면 로그인이 허용되고,
+        // false를 반환하면 로그인이 거부됩니다.
+        //
+        // 문제 상황:
+        // - 사용자가 이메일/비밀번호로 회원가입 (Credentials Provider)
+        // - 나중에 같은 이메일로 Google 로그인 시도
+        // - NextAuth는 기본적으로 다른 Provider의 계정을 자동 연결하지 않음
+        // - OAuthAccountNotLinked 오류 발생
+        //
+        // 해결 방법:
+        // - signIn callback에서 같은 이메일의 기존 계정을 확인
+        // - 기존 계정이 있으면 true를 반환하여 자동 연결 허용
+        async signIn({ user, account }) {
+            // Credentials Provider는 이 callback을 거치지 않음
+            if (account?.provider === "credentials") {
+                return true;
+            }
+            
+            // OAuth Provider (Google 등)인 경우
+            if (account?.provider && user.email) {
+                try {
+                    // 같은 이메일의 기존 사용자 조회
+                    const existingUser = await prisma.user.findUnique({
+                        where: { email: user.email },
+                        include: { accounts: true },
+                    });
+                    
+                    // 기존 사용자가 있고, 이미 같은 Provider로 연결되어 있지 않은 경우
+                    if (existingUser) {
+                        // 같은 Provider의 계정이 이미 연결되어 있는지 확인
+                        const hasProviderAccount = existingUser.accounts.some(
+                            (acc) => acc.provider === account.provider
+                        );
+                        
+                        // 같은 Provider로 이미 연결되어 있으면 로그인 허용
+                        if (hasProviderAccount) {
+                            return true;
+                        }
+                        
+                        // 다른 Provider로 가입한 경우, 자동으로 계정 연결
+                        // ⚠️ 보안 주의: 이메일 인증이 완료된 경우에만 안전합니다.
+                        // 실제 프로덕션에서는 이메일 인증을 추가로 확인하는 것이 좋습니다.
+                        return true; // 계정 자동 연결 허용
+                    }
+                    
+                    // 새 사용자인 경우 로그인 허용
+                    return true;
+                } catch (error) {
+                    console.error("signIn callback error:", error);
+                    return false;
+                }
+            }
+            
+            return true;
+        },
+        
         // ============================================
         // jwt callback: JWT 토큰 생성/갱신 시 실행
         // ============================================
