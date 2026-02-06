@@ -90,14 +90,17 @@ model VerificationToken {
 AUTH_SECRET="your-secret-key-here" # 개발용: openssl rand -base64 32
 AUTH_URL="http://localhost:3000"
 
-# OAuth Providers (선택사항)
-# GitHub
-GITHUB_CLIENT_ID="your-github-client-id"
-GITHUB_CLIENT_SECRET="your-github-client-secret"
+# Database
+DATABASE_URL="postgresql://user:password@host:5432/dbname"
 
-# Google
-GOOGLE_CLIENT_ID="your-google-client-id"
-GOOGLE_CLIENT_SECRET="your-google-client-secret"
+# OAuth Providers (선택사항)
+# Google OAuth (Gmail 로그인)
+AUTH_GOOGLE_ID="your-google-client-id"
+AUTH_GOOGLE_SECRET="your-google-client-secret"
+
+# GitHub OAuth (사용하지 않는 경우 주석 처리)
+# GITHUB_CLIENT_ID="your-github-client-id"
+# GITHUB_CLIENT_SECRET="your-github-client-secret"
 ```
 
 **AUTH_SECRET 생성 방법:**
@@ -109,7 +112,7 @@ openssl rand -base64 32
 
 ### 4단계: Auth 설정 파일 생성
 
-`lib/auth.ts` 또는 `auth.ts` 파일 생성
+`lib/auth.ts` 파일 생성 (현재 프로젝트에서는 이미 생성됨)
 
 ---
 

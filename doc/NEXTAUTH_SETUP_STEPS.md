@@ -26,6 +26,13 @@ bun add -d @types/bcryptjs
 # NextAuth
 AUTH_SECRET="your-secret-key-here"
 AUTH_URL="http://localhost:3000"
+
+# Database
+DATABASE_URL="postgresql://user:password@host:5432/dbname"
+
+# Google OAuth (선택사항 - Gmail 로그인 사용 시)
+AUTH_GOOGLE_ID="your-google-client-id"
+AUTH_GOOGLE_SECRET="your-google-client-secret"
 ```
 
 **AUTH_SECRET 생성:**
@@ -109,7 +116,7 @@ await prisma.user.create({
 
 ### 서버 컴포넌트에서 세션 가져오기
 ```typescript
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth";
 
 export default async function Page() {
   const session = await auth();
@@ -144,26 +151,23 @@ export default function Component() {
 
 ## 추가 설정 (선택사항)
 
-### OAuth Provider 추가 (GitHub 예시)
+### Google OAuth Provider 추가
 
-1. `auth.ts`에 추가:
-```typescript
-import GitHub from "next-auth/providers/github";
+Google OAuth는 이미 코드에 구현되어 있습니다. 환경 변수만 설정하면 됩니다.
 
-providers: [
-  GitHub({
-    clientId: process.env.GITHUB_CLIENT_ID,
-    clientSecret: process.env.GITHUB_CLIENT_SECRET,
-  }),
-  // ... 기존 Credentials provider
-],
-```
-
-2. `.env`에 추가:
+1. `.env.local`에 추가:
 ```env
-GITHUB_CLIENT_ID="your-github-client-id"
-GITHUB_CLIENT_SECRET="your-github-client-secret"
+AUTH_GOOGLE_ID="your-google-client-id"
+AUTH_GOOGLE_SECRET="your-google-client-secret"
 ```
+
+2. Google Cloud Console에서 클라이언트 ID 생성
+   - 자세한 설정 방법은 `doc/GMAIL_OAUTH_SETUP.md` 참고
+
+3. 개발 서버 재시작
+   ```bash
+   bun run dev
+   ```
 
 ---
 
