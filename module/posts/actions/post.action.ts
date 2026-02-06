@@ -26,6 +26,85 @@ export const getPosts = async () => {
     return posts;
 };
 
+// ============================================
+// 포스트 개수 조회
+// ============================================
+// 등록된 전체 포스트 개수를 반환합니다.
+export const getPostsCount = async () => {
+    const count = await prisma.post.count();
+    return count;
+};
+
+// ============================================
+// 페이지네이션된 포스트 조회
+// ============================================
+// 무한 스크롤을 위한 페이지네이션 함수
+// - limit: 한 번에 가져올 포스트 수
+// - cursor: 마지막 포스트의 ID (다음 페이지를 가져오기 위한 커서)
+// - searchQuery: 검색어 (제목, 내용, 태그로 검색)
+export const getPostsPaginated = async ({
+    limit = 5,
+    cursor,
+    searchQuery,
+}: {
+    limit?: number;
+    cursor?: number;
+    searchQuery?: string;
+}) => {
+    // 검색 조건 구성
+    const where = searchQuery
+        ? {
+              OR: [
+                  { title: { contains: searchQuery, mode: "insensitive" as const } },
+                  { content: { contains: searchQuery, mode: "insensitive" as const } },
+                  {
+                      tags: {
+                          some: {
+                              tag: {
+                                  name: { contains: searchQuery, mode: "insensitive" as const },
+                              },
+                          },
+                      },
+                  },
+              ],
+          }
+        : undefined;
+
+    const posts = await prisma.post.findMany({
+        take: limit + 1, // 한 개 더 가져와서 다음 페이지 존재 여부 확인
+        skip: cursor ? 1 : 0, // cursor가 있으면 첫 번째 항목 스킵
+        cursor: cursor ? { id: cursor } : undefined,
+        where,
+        include: {
+            user: {
+                select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                },
+            },
+            tags: {
+                include: {
+                    tag: true,
+                },
+            },
+        },
+        orderBy: {
+            id: "desc",
+        },
+    });
+
+    // 다음 페이지 존재 여부 확인
+    const hasNextPage = posts.length > limit;
+    const items = hasNextPage ? posts.slice(0, limit) : posts;
+
+    return {
+        items,
+        nextCursor: hasNextPage ? items[items.length - 1].id : undefined,
+        hasNextPage,
+    };
+};
+
 export const createPost = async (
     title: string,
     content: string,

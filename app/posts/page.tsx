@@ -25,7 +25,7 @@ import { auth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getPosts } from "@/module/posts/actions/post.action";
+import { getPostsPaginated, getPostsCount } from "@/module/posts/actions/post.action";
 
 // ============================================
 // 동적 import로 PostList 컴포넌트 로드
@@ -39,25 +39,27 @@ const PostList = dynamic(() => import("@/module/posts/components/post-list"), {
 
 export default async function PostsPage() {
   // ============================================
-  // React Query Prefetch
+  // React Query Infinite Prefetch
   // ============================================
-  // 서버에서 데이터를 미리 가져와서 클라이언트에 전달합니다.
+  // 서버에서 첫 페이지 데이터를 미리 가져와서 클라이언트에 전달합니다.
+  // 무한 스크롤을 위해 prefetchInfiniteQuery를 사용합니다.
   // 이렇게 하면:
   // - 초기 로딩 시간 단축 (서버에서 이미 데이터 준비됨)
-  // - 클라이언트에서 useQuery가 즉시 캐시된 데이터 사용
+  // - 클라이언트에서 useInfiniteQuery가 즉시 캐시된 데이터 사용
   // - SEO에도 유리 (서버에서 렌더링된 HTML)
-  // 
-  // 참고: prefetchQuery를 사용하면 서버 사이드 렌더링 시
-  // 데이터가 즉시 준비되어 스켈레톤이 보이지 않을 수 있습니다.
-  // 하지만 클라이언트 사이드 네비게이션 시에는 PostList의
-  // isPending 상태로 스켈레톤이 표시됩니다.
   const queryClient = new QueryClient();
-  await queryClient.prefetchQuery({
-    queryKey: ["posts"],
-    queryFn: getPosts,
+  await queryClient.prefetchInfiniteQuery({
+    queryKey: ["posts", "infinite"],
+    queryFn: ({ pageParam }: { pageParam: number | undefined }) =>
+      getPostsPaginated({
+        limit: 5,
+        cursor: pageParam,
+      }),
+    initialPageParam: undefined as number | undefined,
   });
 
   const session = await auth();
+  const totalPostsCount = await getPostsCount();
 
   return (
     // ============================================
@@ -72,7 +74,9 @@ export default async function PostsPage() {
             <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
               블로그 포스트
             </h1>
-            <p className="text-muted-foreground text-lg">최신 포스트를 확인하세요</p>
+            <p className="text-muted-foreground text-lg">
+              총 {totalPostsCount.toLocaleString()}개의 포스트
+            </p>
           </div>
           {session && (
             <Button asChild size="lg" className="shadow-md hover:shadow-lg transition-shadow">
